@@ -10,11 +10,9 @@
  * - Configurable gain and data rate
  * - HTTP configuration endpoints
  * - Serial JSON output for non-WiFi operation
- * - NeoPixel status indicator (Red=disconnected, Yellow=serial, Blue=WiFi)
  * 
  * Required Libraries:
  * - Adafruit_ADS1X15 (install via Library Manager)
- * - Adafruit_NeoPixel (install via Library Manager)
  * - WiFi.h (included with ESP32 board package)
  * - WebServer.h (included with ESP32 board package)
  * - ArduinoJson (install via Library Manager)
@@ -28,33 +26,13 @@
 #include <Wire.h>
 #include <Adafruit_ADS1X15.h>
 #include <ArduinoJson.h>
-#include <Adafruit_NeoPixel.h>
-
-// NeoPixel configuration
-#define NEOPIXEL_DATA_PIN 0
-#define NEOPIXEL_POWER_PIN 2
-#define NUM_PIXELS 1
-
-Adafruit_NeoPixel pixel(NUM_PIXELS, NEOPIXEL_DATA_PIN, NEO_GRB + NEO_KHZ800);
-
-// NeoPixel colors
-#define COLOR_RED     pixel.Color(255, 0, 0)    // Not connected
-#define COLOR_YELLOW  pixel.Color(255, 255, 0)  // Serial active
-#define COLOR_BLUE    pixel.Color(0, 0, 255)    // WiFi active
 
 // WiFi credentials - UPDATE THESE WITH YOUR NETWORK
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
+const char* ssid = "SONGBIRD";
+const char* password = "quietcartoon195";
 
 // Serial output configuration
 bool enableSerialOutput = true;  // Set to false to disable serial JSON output
-
-// Connection tracking
-bool wifiConnected = false;
-unsigned long lastHttpRequest = 0;
-unsigned long lastSerialOutput = 0;
-#define HTTP_TIMEOUT 5000  // 5 seconds without HTTP = back to disconnected
-#define SERIAL_TIMEOUT 5000  // 5 seconds without serial = back to disconnected
 
 // Create ADS1015 object
 Adafruit_ADS1015 ads;
@@ -104,15 +82,6 @@ void setup() {
   
   Serial.println("ESPLog - Hybrid Ecologies Data Logger Starting...");
   
-  // Initialize NeoPixel
-  pinMode(NEOPIXEL_POWER_PIN, OUTPUT);
-  digitalWrite(NEOPIXEL_POWER_PIN, HIGH);  // Power on the NeoPixel
-  pixel.begin();
-  pixel.setBrightness(50);  // 0-255, adjust for comfort
-  pixel.setPixelColor(0, COLOR_RED);  // Start red (not connected)
-  pixel.show();
-  Serial.println("NeoPixel initialized (RED - disconnected)");
-  
   // Initialize I2C
   Wire.begin();
   
@@ -138,11 +107,7 @@ void setup() {
   }
   Serial.println();
   
-  wifiConnected = true;
-  pixel.setPixelColor(0, COLOR_BLUE);  // WiFi connected = blue
-  pixel.show();
-  
-  Serial.println("WiFi connected! (NeoPixel = BLUE)");
+  Serial.println("WiFi connected!");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   Serial.print("Access sensor data at: http://");
@@ -178,15 +143,6 @@ void loop() {
   if (currentTime - lastSampleTime >= sampleIntervalMs) {
     lastSampleTime = currentTime;
     readADC();
-  }
-  
-  // Update NeoPixel based on activity timeout
-  // Check if no recent HTTP or Serial activity
-  if ((currentTime - lastHttpRequest > HTTP_TIMEOUT) && 
-      (currentTime - lastSerialOutput > SERIAL_TIMEOUT)) {
-    // No activity = red
-    pixel.setPixelColor(0, COLOR_RED);
-    pixel.show();
   }
 }
 
@@ -255,11 +211,6 @@ void readADC() {
 }
 
 void outputSerialJSON() {
-  // Track serial activity for NeoPixel
-  lastSerialOutput = millis();
-  pixel.setPixelColor(0, COLOR_YELLOW);
-  pixel.show();
-  
   // Build JSON output identical to HTTP /data endpoint
   StaticJsonDocument<512> doc;
   doc["timestamp"] = currentData.timestamp;
@@ -327,11 +278,6 @@ void handleRoot() {
 }
 
 void handleData() {
-  // Track HTTP activity for NeoPixel
-  lastHttpRequest = millis();
-  pixel.setPixelColor(0, COLOR_BLUE);
-  pixel.show();
-  
   // Set CORS headers
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET");
